@@ -1,0 +1,96 @@
+demo
+
+python3 demo/top_down_video_demo_full_frame_without_det.py \
+  configs/animal/2d_kpt_sview_rgb_img/topdown_heatmap/animalpose/custom_hrnet_w32_animalpose_256x256.py \
+  work_dirs/custom_hrnet_w32_animalpose_256x256/10ep/best.pth \
+  --video-path demo/resources/ksh_out.mp4 \
+  --show --out-video-root output
+python demo/webcam_demo.py --det_checkpoint demo/resources/yolov3_d53_320_273e_coco-421362b6.pth --animal_pose_config configs/animal/2d_kpt_sview_rgb_img/topdown_heatmap/animalpose/res101_animalpose_256x256.py --animal_pose_checkpoint demo/resources/res101_animalpose_256x256-85563f4a_20210426.pth
+
+
+training workflow
+
+python3 tools/train.py configs/animal/2d_kpt_sview_rgb_img/topdown_heatmap/animalpose/custom_res101_animalpose_256x256.py
+python3 tools/train.py configs/animal/2d_kpt_sview_rgb_img/topdown_heatmap/animalpose/custom_hrnet_w32_animalpose_256x256.py
+
+###### [./tools/train.py] ######
+<arguments>
+config
+--work-dir
+--resume-from
+--no-validate
+--gpus
+--gpu-ids
+--seed
+--deterministic
+--cfg-options
+--launcher
+--local_rank
+--autoscale-lr
+
+<key point>
+model = build_posenet(cfg.model)
+    # add cfg file(model) on mmcv/utils/register.py
+datasets = [build_dataset(cfg.data.train)]
+    # add cfg file(dataset) on mmcv/utils/register.py
+train_model(
+        model,
+        datasets,
+        cfg,
+        distributed=distributed,
+        validate=(not args.no_validate),
+        timestamp=timestamp,
+        meta=meta)
+
+###### [ ./mmpose/apis/train.py ] ######
+
+
+
+
+
+<todo>
+1. config file edit
+   path : configs/animal/2d_kpt_sview_rgb_img/topdown_heatmap/animalpose/custom_res101_animalpose_256x256.py 
+   
+2. dataset file edit
+   path : /home/butler/PycharmProjects/mmlab/mmpose/mmpose/datasets/datasets/animal/org_animal_pose_dataset.py
+
+3. inferenc file edit
+   path : /home/butler/PycharmProjects/mmlab/mmpose/mmpose/apis/inference.py
+
+<to know>
+##### model construction #####
+mmpose/toos/train.py
+    line 143, model = build_posenet(cfg.model)
+mmcv/utils/registry.py
+    # posenet is built with config file using cfg.model.type
+    line 8, def build_from_cfg()
+        line 41, register.get()
+        return class
+topdown
+DataParallel
+
+##### training model #####
+mmpose/tools/train.py
+    line 72, def main()
+        line 158, train_model()
+mmpose/apis/train.py
+    line 20, def train_model()
+        line 140, runner.run()
+mmcv/runner/epoch_based_runner.py
+    line 74, def run()
+        line 129 epoch_runner()
+    line 41, def train()
+        line 42, self.model.train()
+mmpose/models/detector/base.py
+    line 77. def train_step()
+        line 103, self.forward()
+## tips. model info is in mmpose/config/animal/2d_kpt_sview_rgb_img/topdown_heatmap/animalpose/
+mmpose/models/detector/top_down.py
+    line 141, def forward_train()
+        output backbone [64, 2048, 8, 8]
+        output kp_head [64, 15, 64, 64]
+
+## long story short, config file has model info
+## train.py, build model class
+## train.py train model
