@@ -1,0 +1,5 @@
+
+python eval.py --trained_model=weights/yolact_base_54_800000.pth --score_threshold=0.3 --top_k=100 --cuda=False --image=data/yolact_example_0.png
+
+python onnxeval.py --trained_model=weights/yolact_base_54_800000.pth --score_threshold=0.3 --top_k=100 --cuda=False --image=data/yolact_example_0.png
+python butler_yolact.py --trained_model=weights/yolact_base_54_800000.pth --score_threshold=0.3 --top_k=100 --cuda=False --image=/home/butlely/PycharmProjects/mmlab/mmpose/works_dirs/002.mp4
