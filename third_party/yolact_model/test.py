@@ -1,7 +1,7 @@
 import onnxruntime as rt
 
 from data import COLORS
-from yolact import Yolact
+from _yolact import Yolact
 from utils.augmentations import FastBaseTransform
 from utils import timer
 from utils.functions import SavePath

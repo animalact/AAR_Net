@@ -1,19 +1,24 @@
 import cv2
 import time
 
-from third_party.yolact_model.butler_test import setYolact, runYolact
-
+from third_party.yolact_model.yolact import setYolact, runYolact
+from third_party.mmpose_model.mmpose import setMmpose, runMmpose
 
 PREV = time.time()
 
-def checktime():
+def checktime(text=""):
     global PREV
+    if text:
+        print(text)
     print(time.time()-PREV, "s / iter")
     PREV = time.time()
 
-def run(video, onnx):
+def run(video, yolo_onnx, mm_onnx, show=True):
     # load yolo settings
-    sess, sess_info = setYolact(onnx)
+    yolo_sess, yolo_sess_info = setYolact(yolo_onnx)
+    checktime("yolo set")
+    mm_sess, mm_sess_info = setMmpose(mm_onnx)
+    checktime("mmpose set")
 
     # load video frame
     if video.isdigit():
@@ -30,14 +35,21 @@ def run(video, onnx):
 
         # my code
         img = frame.copy()
-        runYolact(img, sess=sess, sess_info=sess_info)
+        img, bbox, mask = runYolact(img, sess=yolo_sess, sess_info=yolo_sess_info)
+        img, coords = runMmpose(img, bbox, mm_sess, mm_sess_info )
+        # runTranformer
+        if show:
+            cv2.imshow("demo", img)
+
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):
             break
 
 
+
+
 if __name__ == "__main__":
     video = "/home/butlely/PycharmProjects/mmlab/mmpose/works_dirs/002.mp4"
-    onnx = "/home/butlely/PycharmProjects/yolo/yolact2onnx/yolact_model/yolact.onnx"
-
-    run(video, onnx)
+    yolo_onnx = "/home/butlely/PycharmProjects/yolo/yolact2onnx/yolact_model/yolact_model.onnx"
+    mm_onnx = "/home/butlely/PycharmProjects/AAR_Net/weights/mmpose/onnx/poodle_w48.onnx"
+    run(video, yolo_onnx, mm_onnx)

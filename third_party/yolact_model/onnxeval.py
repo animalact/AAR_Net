@@ -3,7 +3,7 @@ import onnxruntime as rt
 import numpy
 
 from data import COCODetection, get_label_map, MEANS, COLORS
-from yolact import Yolact
+from _yolact import Yolact
 from utils.augmentations import BaseTransform, FastBaseTransform, Resize
 from utils.functions import MovingAverage, ProgressBar
 from layers.box_utils import jaccard, center_size
