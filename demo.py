@@ -1,7 +1,7 @@
 import cv2
 import time
 
-from third_party.yolact_model.butler_test import setYolact, runYolact
+from third_party.yolact_model.yolact import setYolact, runYolact
 
 
 PREV = time.time()
@@ -11,7 +11,7 @@ def checktime():
     print(time.time()-PREV, "s / iter")
     PREV = time.time()
 
-def run(video, onnx):
+def run(video, onnx, show=True):
     # load yolo settings
     sess, sess_info = setYolact(onnx)
 
@@ -30,14 +30,21 @@ def run(video, onnx):
 
         # my code
         img = frame.copy()
-        runYolact(img, sess=sess, sess_info=sess_info)
+        img, bbox = runYolact(img, sess=sess, sess_info=sess_info)
+
+        if show:
+            print(img.shape)
+            cv2.imshow("demo", img)
+
         key = cv2.waitKey(1) & 0xFF
         if key == ord("q"):
             break
 
 
+
+
 if __name__ == "__main__":
     video = "/home/butlely/PycharmProjects/mmlab/mmpose/works_dirs/002.mp4"
-    onnx = "/home/butlely/PycharmProjects/yolo/yolact2onnx/yolact_model/yolact.onnx"
+    onnx = "/home/butlely/PycharmProjects/yolo/yolact2onnx/yolact_model/yolact_model.onnx"
 
     run(video, onnx)

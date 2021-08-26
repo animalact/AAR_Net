@@ -104,14 +104,14 @@ class Detect(object):
         else:
             boxes, masks, classes, scores = self.traditional_nms(boxes, masks, scores, self.nms_thresh, self.conf_thresh)
 
-        # indices_15 = torch.where(classes == 15)
-        # indices_16 = torch.where(classes == 16)
-        # indices = torch.cat((indices_15[0], indices_16[0]))
-        #
-        # classes = torch.index_select(classes.cpu(), 0, indices.cpu())
-        # boxes = torch.index_select(boxes.cpu(), 0, indices.cpu())
-        # masks = torch.index_select(masks.cpu(), 0, indices.cpu())
-        # scores = torch.index_select(scores.cpu(), 0, indices.cpu())
+        indices_15 = torch.where(classes == 15)
+        indices_16 = torch.where(classes == 16)
+        indices = torch.cat((indices_15[0], indices_16[0]))
+
+        classes = torch.index_select(classes.cpu(), 0, indices.cpu())
+        boxes = torch.index_select(boxes.cpu(), 0, indices.cpu())
+        masks = torch.index_select(masks.cpu(), 0, indices.cpu())
+        scores = torch.index_select(scores.cpu(), 0, indices.cpu())
 
 
         return {'box': boxes, 'mask': masks, 'class': classes, 'score': scores}

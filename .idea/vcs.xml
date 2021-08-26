@@ -2,5 +2,7 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/3rd_party/yolact_model" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/third_party/yolact_model" vcs="Git" />
   </component>
 </project>

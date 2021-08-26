@@ -3,7 +3,7 @@ from utils.augmentations import SSDAugmentation, BaseTransform
 from utils.functions import MovingAverage, SavePath
 from utils import timer
 from layers.modules import MultiBoxLoss
-from yolact import Yolact
+from _yolact import Yolact
 import os
 import sys
 import time
