@@ -8,7 +8,7 @@ def putCircle(frame, coords):
         y = int(coord[1])
         t = coord[2]
         if t > thr and x > 0 and y > 0:
-            frame = cv2.circle(frame, (x, y), radius=3, color=(0, 255, 0), thickness=-1)
+            frame = cv2.circle(frame, (x, y), radius=3, color=(0, 0, 0), thickness=-1)
     return frame
 
 def show(img, keypoints):
