@@ -69,7 +69,7 @@ def setArgs():
     args.mask_proto_debug = False
     args.crop = True
     # display settings
-    args.display_masks = False
+    args.display_masks = True
     args.display_bboxes = True
     args.display_text = False
     args.display_scores = False
@@ -108,7 +108,7 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
 
     if num_dets_to_consider == 0:
         # No detections found so just output the original image
-        return ((img_gpu * 255).byte().cpu().numpy(), [])
+        return ((img_gpu * 255).byte().cpu().numpy(), [], [])
 
     # Quick and dirty lambda for selecting the color for a particular index
     # Also keeps track of a per-gpu color cache for maximum speed
@@ -185,9 +185,11 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
                             cv2.LINE_AA)
     if len(t[2]) > 0:
         bbox = t[2][0]
+        mask = t[3][0]
     else:
         bbox = []
-    return (img_numpy, bbox)
+        mask = []
+    return (img_numpy, bbox, mask)
 
 
 def evalimage(img, sess = None, sess_info = None):
@@ -207,11 +209,8 @@ def evalimage(img, sess = None, sess_info = None):
                     'mask': torch.from_numpy(pred_onnx[2]), 'priors': torch.from_numpy(pred_onnx[3]),
                     'proto': torch.from_numpy(pred_onnx[4])})
 
-    (img_numpy, bbox) = prep_display(preds, frame, None, None, undo_transform=False)
-    return (img_numpy, bbox)
-    # ???
-    # if save_path is None:
-    #     img_numpy = img_numpy[:, :, (2, 1, 0)]
+    (img_numpy, bbox, mask) = prep_display(preds, frame, None, None, undo_transform=False)
+    return (img_numpy, bbox, mask)
 
 
 def setYolactOnnx(onnx):
@@ -247,7 +246,7 @@ def setYolact(onnx):
     return sess, sess_info
 
 def runYolact(img, sess, sess_info):
-    (img_np, bbox) = evalimage(img, sess=sess, sess_info=sess_info)
-    return (img_np, bbox)
+    (img_np, bbox, mask) = evalimage(img, sess=sess, sess_info=sess_info)
+    return (img_np, bbox, mask)
 
 

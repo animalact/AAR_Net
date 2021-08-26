@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 
 
+
+
 def transform_preds(coords, center, scale, output_size, use_udp=False):
     """Get final keypoint predictions from heatmaps and apply scaling and
     translation to map them back to the image.
@@ -195,3 +197,78 @@ def trans_normalize(img, mean, std):
 def trans_expand(img):
     img = np.expand_dims(img, axis=0)
     return img
+######################################################################
+
+def reformCoord(coords, bbox):
+    x = int(bbox[0])
+    y = int(bbox[1])
+    w = int(bbox[2]) - x
+    h = int(bbox[3]) - y
+
+    assert w > 0 and h > 0
+
+    fx = w/h
+    fy = h/w
+
+    if h > w:
+        w_new = int(256 * fx)
+        pad = int((256-w_new)/2)
+        coords[:,0] -= pad
+        coords = np.multiply(coords, [h/256, h/256, 1])
+        coords = np.add(coords, [x, y, 0])
+
+    if w > h:
+        h_new = int(256 * fy)
+        pad = int((256-h_new)/2)
+        coords[:, 1] -= pad
+        coords = np.multiply(coords, [w / 256, w / 256, 1])
+        coords = np.add(coords, [x, y, 0])
+
+    return coords
+
+
+def resizeData(img, bbox):
+    # img (h, w, c)
+    """
+    ['image_file', 'center', 'scale', 'bbox', 'rotation', 'joints_3d', 'joints_3d_visible', 'dataset', 'bbox_score', 'bbox_id', 'ann_info', 'img'])
+    """
+    x = int(bbox[0])
+    y = int(bbox[1])
+    x1 = int(bbox[2])
+    y1 = int(bbox[3])
+    w = x1-x
+    h = y1-y
+    assert w>0 and h>0
+
+    img_clipped = img[y:y + h, x:x + w]
+    try:
+        if h > w:
+            fx = w / h
+            w_new = int(256 * fx)
+            pad = int((256 - w_new) / 2)
+            img_resize = cv2.resize(img_clipped, dsize=(w_new, 256))
+            img_pad = np.pad(img_resize, ((0, 0), (pad, 256 - w_new - pad), (0, 0)), 'constant', constant_values=0)
+
+        else:
+            fy = h / w
+            h_new = int(256 * fy)
+            pad = int((256 - h_new) / 2)
+            img_resize = cv2.resize(img_clipped, dsize=(256, h_new))
+            img_pad = np.pad(img_resize, ((pad, 256 - h_new - pad), (0, 0), (0, 0)), 'constant', constant_values=0)
+
+        return img_pad
+    except:
+        return None
+
+def compose(img, img_metas):
+    # transform
+    img = trans_affine(img, img_metas[0]['center'], img_metas[0]['scale'], img_metas[0]['rotation'],
+                       img_metas[0]['size'])
+    img = trans_reshape(img)
+    img = trans_normalize(img, mean=img_metas[0]['mean'], std=img_metas[0]['std'])
+    img = trans_expand(img)
+    img = img.astype(np.float32)
+
+    img_flipped = np.flip(img, 3)
+
+    return img, img_flipped
