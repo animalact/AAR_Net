@@ -8,14 +8,18 @@ import h5py
 import numpy as np
 import pandas as pd
 
-
 class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
 
-        self.conv1 = nn.Conv2d(2, 10, 5)
-        self.conv2 = nn.Conv2d(10, 20, 5)
-        self.conv3 = nn.Conv2d(20, 30, 5)
+        self.conv1 = nn.Conv2d(2, 10, 3)
+        self.conv2 = nn.Conv2d(10, 20, 3)
+        self.conv3 = nn.Conv2d(20, 30, 3)
+        self.conv4 = nn.Conv2d(30, 40, 3)
+
+        # self.conv1 = nn.Conv2d(2, 10, 5)
+        # self.conv2 = nn.Conv2d(10, 20, 5)
+        # self.conv3 = nn.Conv2d(20, 30, 5)
 
     def forward(self, i):
         x = i.contiguous().view(-1, i.shape[2], i.shape[3], i.shape[4])
@@ -24,6 +28,8 @@ class CNN(nn.Module):
         x = F.relu(self.conv2(x))
         x = nn.MaxPool2d(3)(x)
         x = F.relu(self.conv3(x))
+        x = nn.MaxPool2d(3)(x)
+        x = F.relu(self.conv4(x))
         x = nn.AvgPool2d(3)(x)
         x = x.view(i.shape[0], i.shape[1], -1)
 
@@ -33,7 +39,7 @@ class CNN(nn.Module):
 class LSTM(nn.Module):
     def __init__(self):
         super(LSTM, self).__init__()
-        self.lstm = nn.LSTM(1470, 100)
+        self.lstm = nn.LSTM(160,100) #1470, 100)
         self.fc = nn.Linear(30*100, 3)
 
     def forward(self, x):
@@ -74,6 +80,7 @@ class ImageFolder(Dataset):
         da = getH5data(name, self.files[index])[np.newaxis, ...]
         arr = np.concatenate((da, rgb_batch), axis=0)
         action_id = self.data['action_id'][index]
+
         action_id = action_id%3 #12->0 7->1 2->2
         label = np.zeros(3)
         label[action_id] = 1
@@ -82,37 +89,49 @@ class ImageFolder(Dataset):
     def __len__(self):
         return len(self.data)
 
-def test(model1, model2, trainloader):
-    model1.load_state_dict(torch.load('./save_param1_.pth'))
-    model2.load_state_dict(torch.load('./save_param2_.pth'))
+def test(model1, model2, testloader,epoch):
+    model1.load_state_dict(torch.load('./save_param1_' + str(epoch)+ '.pth'))
+    model2.load_state_dict(torch.load('./save_param2_' + str(epoch)+ '.pth'))
 
     model1.eval()
     model2.eval()
 
     cnt = 0
-    for imgs, labels in trainloader:
+    cnt0, cnt1, cnt2 = 0, 0, 0
+    cnt0_, cnt1_, cnt2_ = 0, 0, 0
+    for imgs, labels in testloader:
         imgs, labels = torch.Tensor(imgs.float()).cuda(), torch.Tensor(labels.float()).cuda()
         imgs = imgs.transpose(1, 2)
 
         features = model1(imgs)
         out = model2(features)
 
-        if torch.max(out,1)[1] == torch.max(labels, 1)[1]:
+        if torch.max(labels, 1)[1] == 0:
+            cnt0 += 1
+            if torch.max(out, 1)[1] == 0:
+                cnt0_ += 1
+        elif torch.max(labels, 1)[1] == 1:
+            cnt1 += 1
+            if torch.max(out, 1)[1] == 1:
+                cnt1_ += 1
+        elif torch.max(labels, 1)[1] == 2:
+            cnt2 += 1
+            if torch.max(out, 1)[1] == 2:
+                cnt2_ += 1
+        if torch.max(out, 1)[1] == torch.max(labels, 1)[1]:
             cnt += 1
-        #print(out, labels)
-        # print(torch.max(out,1)[1], torch.max(labels, 1)[1])
 
-    print(cnt/840)
-def train(model1, model2, trainloader):
-    model1.train()
-    model2.train()
+    print(cnt0_ / cnt0, cnt1_ / cnt1, cnt2_ / cnt2, cnt / 840)
+def train(model1, model2, trainloader,testloader):
 
     optimizer1 = optim.SGD(model1.parameters(), lr=0.01)
     optimizer2 = optim.SGD(model2.parameters(), lr=0.01)
 
     loss_fn = nn.NLLLoss()
 
-    for epoch in range(20):
+    for epoch in range(50):
+        model1.train()
+        model2.train()
         for imgs,labels in trainloader:
             imgs, labels = torch.Tensor(imgs.float()).cuda(),torch.Tensor(labels.float()).cuda()
             imgs = imgs.transpose(1,2)
@@ -129,22 +148,22 @@ def train(model1, model2, trainloader):
             optimizer1.step()
             optimizer2.step()
 
-            torch.save(model1.state_dict(), './save_param1_1.pth')
-            torch.save(model2.state_dict(), './save_param2_1.pth')
+        torch.save(model1.state_dict(), './save_param1_' + str(epoch)+ '.pth')
+        torch.save(model2.state_dict(), './save_param2_' + str(epoch)+ '.pth')
+        test(model1,model2,testloader,epoch=epoch)
 
-        if epoch % 10 == 0:
-            print("epoch:", epoch," _ loss:", loss.cpu().detach().numpy())
+        print("epoch:", epoch," _ loss:", loss.cpu().detach().numpy())
 
 
 if __name__ == "__main__":
     dataset = ImageFolder(folder_path='./three.csv')
     # data_loader = DataLoader(dataset=dataset, batch_size=8, shuffle=True, num_workers=8)
-    train_set, val_set = random_split(dataset, [3360, 840])
+    train_set, val_set = random_split(dataset, [3400, 800])
     train_loader = DataLoader(dataset=train_set, batch_size=8, shuffle=True, num_workers=8)
     val_loader = DataLoader(dataset=val_set, batch_size=1, shuffle=True, num_workers=8)
 
     net_cnn = CNN().cuda()
     net_lstm = LSTM().cuda()
 
-    train(net_cnn, net_lstm, train_loader)
-    test(net_cnn, net_lstm, val_loader)
+    train(net_cnn, net_lstm, train_loader,val_loader)
+
