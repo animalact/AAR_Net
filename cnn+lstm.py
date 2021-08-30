@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import Dataset,DataLoader
+from torch.utils.data.dataset import random_split
 import h5py
 import numpy as np
 import pandas as pd
@@ -58,8 +59,14 @@ class ImageFolder(Dataset):
 
     def __getitem__(self, index):
         arr = np.zeros((30, 256, 256))
-        npy = np.load('./label_yerim/label_9/' + str(self.files[index]) + '.npy')
-        name = "./source_9.h5"
+        npy = np.load('./label_yerim/label_all/' + str(self.files[index]) + '.npy')
+        if self.data['action_id'][index]==2:
+            name = "./source_9.h5"
+        elif self.data['action_id'][index]==12:
+            name = "./source_7.h5"
+        elif self.data['action_id'][index]==7:
+            name = "./source_8.h5"
+
         for i in range(30):
             for j in range(0, 15, 2):
                 arr[(npy[i][j + 1] // self.data['heigth'][index]) * 255, (npy[i][j] // self.data['width'][index]) * 255] = i + 1
@@ -67,7 +74,7 @@ class ImageFolder(Dataset):
         da = getH5data(name, self.files[index])[np.newaxis, ...]
         arr = np.concatenate((da, rgb_batch), axis=0)
         action_id = self.data['action_id'][index]
-        action_id = action_id//3
+        action_id = action_id%3 #12->0 7->1 2->2
         label = np.zeros(3)
         label[action_id] = 1
         return arr, label
@@ -75,15 +82,37 @@ class ImageFolder(Dataset):
     def __len__(self):
         return len(self.data)
 
+def test(model1, model2, trainloader):
+    model1.load_state_dict(torch.load('./save_param1_.pth'))
+    model2.load_state_dict(torch.load('./save_param2_.pth'))
 
+    model1.eval()
+    model2.eval()
+
+    cnt = 0
+    for imgs, labels in trainloader:
+        imgs, labels = torch.Tensor(imgs.float()).cuda(), torch.Tensor(labels.float()).cuda()
+        imgs = imgs.transpose(1, 2)
+
+        features = model1(imgs)
+        out = model2(features)
+
+        if torch.max(out,1)[1] == torch.max(labels, 1)[1]:
+            cnt += 1
+        #print(out, labels)
+        # print(torch.max(out,1)[1], torch.max(labels, 1)[1])
+
+    print(cnt/840)
 def train(model1, model2, trainloader):
     model1.train()
     model2.train()
 
-    optimizer1 = optim.Adam(model1.parameters(), lr=0.01)
-    optimizer2 = optim.Adam(model2.parameters(), lr=0.01)
+    optimizer1 = optim.SGD(model1.parameters(), lr=0.01)
+    optimizer2 = optim.SGD(model2.parameters(), lr=0.01)
+
     loss_fn = nn.NLLLoss()
-    for epoch in range(500):
+
+    for epoch in range(20):
         for imgs,labels in trainloader:
             imgs, labels = torch.Tensor(imgs.float()).cuda(),torch.Tensor(labels.float()).cuda()
             imgs = imgs.transpose(1,2)
@@ -100,19 +129,22 @@ def train(model1, model2, trainloader):
             optimizer1.step()
             optimizer2.step()
 
-            torch.save(model1.state_dict(), './save_param1.pth')
-            torch.save(model2.state_dict(), './save_param2.pth')
+            torch.save(model1.state_dict(), './save_param1_1.pth')
+            torch.save(model2.state_dict(), './save_param2_1.pth')
 
         if epoch % 10 == 0:
-            print(epoch+1, loss.cpu().detach().numpy())
+            print("epoch:", epoch," _ loss:", loss.cpu().detach().numpy())
 
 
 if __name__ == "__main__":
-    dataset = ImageFolder(folder_path='./new_csv.csv')
-    train_loader = DataLoader(dataset=dataset, batch_size=8, shuffle=True, num_workers=8)
+    dataset = ImageFolder(folder_path='./three.csv')
+    # data_loader = DataLoader(dataset=dataset, batch_size=8, shuffle=True, num_workers=8)
+    train_set, val_set = random_split(dataset, [3360, 840])
+    train_loader = DataLoader(dataset=train_set, batch_size=8, shuffle=True, num_workers=8)
+    val_loader = DataLoader(dataset=val_set, batch_size=1, shuffle=True, num_workers=8)
 
     net_cnn = CNN().cuda()
     net_lstm = LSTM().cuda()
 
     train(net_cnn, net_lstm, train_loader)
-
+    test(net_cnn, net_lstm, val_loader)
