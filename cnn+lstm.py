@@ -83,7 +83,6 @@ class DataFolder(Dataset):
         action_id = action_id % 3     # 12->0 7->1 2->2
         label = np.zeros(3)
         label[action_id] = 1
-        print(arr.shape)
         return arr, label
 
     def __len__(self):
@@ -107,7 +106,7 @@ class DataFolder(Dataset):
             datum = pd.read_csv(label_folder)
             if self.select:
                 where = datum['action_id'].isin(self.select)
-                data =datum[where]
+                datum = datum[where]
 
             if data is None:
                 data = datum
@@ -123,9 +122,11 @@ class DataFolder(Dataset):
         col = self.data.columns.to_list()
         col += ["s", "e"]
 
+        len_new = 0
         for id, info in self.data.iterrows():
-            if id % 500 == 0:
-                print(f"{id} / {len(self.data)}")
+            if id % 10 == 0:
+                print("", end="\r")
+                print(f"{id} / {len(self.data)} -> new : {len_new} created", end="")
             clipped_num = (info.frames-self.frame_thr) // self.skip + 1
             if range == 0:
                 continue
@@ -135,8 +136,10 @@ class DataFolder(Dataset):
                 new_info["e"] = count*self.skip + self.frame_thr
 
                 new_data.append(new_info)
-
+                len_new += 1
+        print()
         new_data = pd.DataFrame(np.array(new_data), columns=col)
+
         self.data = new_data
 
 
@@ -216,19 +219,25 @@ def test(model1, model2, testloader,epoch):
         if torch.max(out, 1)[1] == torch.max(labels, 1)[1]:
             cnt += 1
 
-    print(cnt0_ / cnt0, cnt1_ / cnt1, cnt2_ / cnt2, cnt / 840)
+    print(cnt0_, cnt0, "|", cnt1_, cnt1, "|", cnt2_, cnt2, "|", cnt / 840)
 
-def train(model1, model2, trainloader,testloader):
+def train(model1, model2, trainloader, testloader):
 
     optimizer1 = optim.SGD(model1.parameters(), lr=0.01)
     optimizer2 = optim.SGD(model2.parameters(), lr=0.01)
 
     loss_fn = nn.NLLLoss()
-
+    tot_len = int(len(trainloader.dataset)*0.8/64)
     for epoch in range(50):
+        print(f"epoch: {epoch} is started")
         model1.train()
         model2.train()
-        for imgs,labels in trainloader:
+        cur_id = 0
+        for imgs, labels in trainloader:
+            cur_id += 1
+            if cur_id % 7 == 0 or cur_id % 4 == 0:
+                print("", end="\r")
+                print(f"{cur_id} / {tot_len} done", end="")
             imgs, labels = torch.Tensor(imgs.float()).cuda(),torch.Tensor(labels.float()).cuda()
             imgs = imgs.transpose(1,2)
 
@@ -252,14 +261,16 @@ def train(model1, model2, trainloader,testloader):
 
 
 if __name__ == "__main__":
-    dataset = DataFolder(folder_path='./data', skip=10, frame_thr=10, select=[2,10,11])
-    ## data_loader = DataLoader(dataset=dataset, batch_size=8, shuffle=True, num_workers=8)
-    # train_set, val_set = random_split(dataset, [3400, 800])
-    # train_loader = DataLoader(dataset=train_set, batch_size=8, shuffle=True, num_workers=8)
-    # val_loader = DataLoader(dataset=val_set, batch_size=1, shuffle=True, num_workers=8)
+    dataset = DataFolder(folder_path='./data', frame_thr=30, select=[1, 3, 4, 7, 12])
+    train_count = len(dataset)//80
+    valid_count = len(dataset) - train_count
+    # data_loader = DataLoader(dataset=dataset, batch_size=8, shuffle=True, num_workers=8)
+    train_set, val_set = random_split(dataset, [train_count, valid_count])
+    train_loader = DataLoader(dataset=train_set, batch_size=64, shuffle=True, num_workers=0)
+    val_loader = DataLoader(dataset=val_set, batch_size=1, shuffle=True, num_workers=0)
     #
-    # net_cnn = CNN().cuda()
-    # net_lstm = LSTM().cuda()
-    #
-    # train(net_cnn, net_lstm, train_loader,val_loader)
+    net_cnn = CNN().cuda()
+    net_lstm = LSTM().cuda()
+
+    train(net_cnn, net_lstm, train_loader,val_loader)
 
