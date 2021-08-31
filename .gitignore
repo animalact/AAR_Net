@@ -121,4 +121,6 @@ work_dirs/
 *.sh~
 
 weights/
+data/
+data*
 
