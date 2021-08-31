@@ -123,4 +123,4 @@ work_dirs/
 weights/
 data/
 data*
-
+test*

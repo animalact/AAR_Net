@@ -1,4 +1,6 @@
 import os.path
+import random
+import time
 
 import torch
 import torch.nn as nn
@@ -116,7 +118,7 @@ class DataFolder(Dataset):
         return data
 
     def _dataAugmentation(self):
-        new_data = []
+        new_data_dict = {}
         if not self.frame_thr:
             return
         col = self.data.columns.to_list()
@@ -134,14 +136,27 @@ class DataFolder(Dataset):
                 new_info = info.copy()
                 new_info["s"] = count*self.skip
                 new_info["e"] = count*self.skip + self.frame_thr
+                if not new_data_dict.get(new_info['label_num'], None):
+                    new_data_dict[new_info['label_num']] = []
 
-                new_data.append(new_info)
+                new_data_dict[new_info['label_num']].append(new_info)
                 len_new += 1
         print()
+        new_data = self._dataFlatten(new_data_dict)
         new_data = pd.DataFrame(np.array(new_data), columns=col)
 
         self.data = new_data
+        print(len(self.data))
 
+    def _dataFlatten(self, new_data_dict):
+        new_data = []
+        minimum_count = min(list(map(len, new_data_dict.values())))
+        print(f"data set on minimum count : {minimum_count}")
+        for label_num in new_data_dict:
+            data_list = new_data_dict[label_num]
+            random.shuffle(data_list)
+            new_data.extend(data_list[:minimum_count])
+        return new_data
 
     def _getKeypoints(self, item_info):
         # meta data
@@ -164,12 +179,10 @@ class DataFolder(Dataset):
 
         arr = np.zeros((frame_total, self.size, self.size))
         for i in range(frame_total):
-            li = []
             for j in range(0, 30, 2):
                 x = round((npy[s+i][j] / width) * (self.size-1))
                 y = round((npy[s+i][j + 1] / height) * (self.size-1))
-                li.append([x,y])
-                arr[i, y, x] = 1 #i+1
+                arr[i, y, x] = 1+i
         return arr
 
     def _getH5data(self, item_info):
@@ -194,7 +207,7 @@ def test(model1, model2, testloader,epoch):
     model1.eval()
     model2.eval()
 
-    cnt = 0
+    cnt, cnt_ = 0, 0
     cnt0, cnt1, cnt2 = 0, 0, 0
     cnt0_, cnt1_, cnt2_ = 0, 0, 0
     for imgs, labels in testloader:
@@ -203,7 +216,7 @@ def test(model1, model2, testloader,epoch):
 
         features = model1(imgs)
         out = model2(features)
-
+        cnt += 1
         if torch.max(labels, 1)[1] == 0:
             cnt0 += 1
             if torch.max(out, 1)[1] == 0:
@@ -217,9 +230,14 @@ def test(model1, model2, testloader,epoch):
             if torch.max(out, 1)[1] == 2:
                 cnt2_ += 1
         if torch.max(out, 1)[1] == torch.max(labels, 1)[1]:
-            cnt += 1
+            cnt_ += 1
+    print()
+    print("-"*10)
+    print(f"class1 : {cnt0_} / {cnt0} = {round(cnt0_/cnt0, 2)}")
+    print(f"class2 : {cnt1_} / {cnt1} = {round(cnt1_/cnt1, 2)}")
+    print(f"class3 : {cnt2_} / {cnt2} = {round(cnt2_/cnt2, 2)}")
+    print(f"correct/total : {cnt_} / {cnt} = {round(cnt_/cnt, 2)}")
 
-    print(cnt0_, cnt0, "|", cnt1_, cnt1, "|", cnt2_, cnt2, "|", cnt / 840)
 
 def train(model1, model2, trainloader, testloader):
 
@@ -227,17 +245,19 @@ def train(model1, model2, trainloader, testloader):
     optimizer2 = optim.SGD(model2.parameters(), lr=0.01)
 
     loss_fn = nn.NLLLoss()
-    tot_len = int(len(trainloader.dataset)*0.8/64)
+    tot_len = int(len(trainloader.dataset)//64)
+
+    prev = time.time()
+
     for epoch in range(50):
         print(f"epoch: {epoch} is started")
+        print()
         model1.train()
         model2.train()
         cur_id = 0
         for imgs, labels in trainloader:
-            cur_id += 1
-            if cur_id % 7 == 0 or cur_id % 4 == 0:
-                print("", end="\r")
-                print(f"{cur_id} / {tot_len} done", end="")
+            cur_id+=1
+            prev = time.time()
             imgs, labels = torch.Tensor(imgs.float()).cuda(),torch.Tensor(labels.float()).cuda()
             imgs = imgs.transpose(1,2)
 
@@ -252,6 +272,8 @@ def train(model1, model2, trainloader, testloader):
 
             optimizer1.step()
             optimizer2.step()
+            print("", end="\r")
+            print(f"{cur_id} / {tot_len} batch done : {round(time.time()-prev,2)}s ", end="")
 
         torch.save(model1.state_dict(), './save_param1_' + str(epoch)+ '.pth')
         torch.save(model2.state_dict(), './save_param2_' + str(epoch)+ '.pth')
@@ -261,16 +283,17 @@ def train(model1, model2, trainloader, testloader):
 
 
 if __name__ == "__main__":
-    dataset = DataFolder(folder_path='./data', frame_thr=30, select=[1, 3, 4, 7, 12])
-    train_count = len(dataset)//80
+    dataset = DataFolder(folder_path='./data', frame_thr=30, skip=10, select=[2, 7, 12])
+    train_count = int(len(dataset)*0.9)
     valid_count = len(dataset) - train_count
     # data_loader = DataLoader(dataset=dataset, batch_size=8, shuffle=True, num_workers=8)
     train_set, val_set = random_split(dataset, [train_count, valid_count])
-    train_loader = DataLoader(dataset=train_set, batch_size=64, shuffle=True, num_workers=0)
+
+    train_loader = DataLoader(dataset=train_set, batch_size=32, shuffle=True, num_workers=0)
     val_loader = DataLoader(dataset=val_set, batch_size=1, shuffle=True, num_workers=0)
     #
     net_cnn = CNN().cuda()
     net_lstm = LSTM().cuda()
 
-    train(net_cnn, net_lstm, train_loader,val_loader)
+    train(net_cnn, net_lstm, train_loader, val_loader)
 
