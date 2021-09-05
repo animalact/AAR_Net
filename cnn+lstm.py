@@ -99,7 +99,7 @@ class DataFolder(Dataset):
         if category == "cat":
             label_nums = [7,8,9]
         else:
-            label_nums = [1,2,3,4,5,6]
+            label_nums = [2,3,4,5,6]
 
         for label_num in label_nums:
             label_folder = os.path.join(os.path.abspath(self.anno_path), f'label_{label_num}.csv')
@@ -137,10 +137,10 @@ class DataFolder(Dataset):
                 new_info = info.copy()
                 new_info["s"] = count*self.skip
                 new_info["e"] = count*self.skip + self.frame_thr
-                if not new_data_dict.get(new_info['label_num'], None):
-                    new_data_dict[new_info['label_num']] = []
+                if not new_data_dict.get(new_info['action_id'], None):
+                    new_data_dict[new_info['action_id']] = []
 
-                new_data_dict[new_info['label_num']].append(new_info)
+                new_data_dict[new_info['action_id']].append(new_info)
                 len_new += 1
         print()
         new_data = self._dataFlatten(new_data_dict)
@@ -153,8 +153,8 @@ class DataFolder(Dataset):
         new_data = []
         minimum_count = min(list(map(len, new_data_dict.values())))
         print(f"data set on minimum count : {minimum_count}")
-        for label_num in new_data_dict:
-            data_list = new_data_dict[label_num]
+        for action_id in new_data_dict:
+            data_list = new_data_dict[action_id]
             random.shuffle(data_list)
             new_data.extend(data_list[:minimum_count])
         return new_data
@@ -284,8 +284,8 @@ def train(model1, model2, trainloader, testloader):
 
 
 if __name__ == "__main__":
-    train_dataset = DataFolder(data_path="./data/", category="dog", anno_path='./data/train', frame_thr=30, skip=15, select=[7, 8, 9, 13])
-    test_dataset = DataFolder(data_path="./data/", category="dog", anno_path='./data/test', frame_thr=30, skip=1000, select=[7, 8, 9, 13])
+    train_dataset = DataFolder(data_path="./data/", category="dog", anno_path='./data/train', frame_thr=30, skip=15, select=[1,2,3,4,5,6,7,8,9,10,11,12])
+    test_dataset = DataFolder(data_path="./data/", category="dog", anno_path='./data/test', frame_thr=30, skip=1000, select=[1,2,3,4,5,6,7,8,9,10,11,12])
 
     train_loader = DataLoader(dataset=train_dataset, batch_size=32, shuffle=True, num_workers=0)
     test_loader = DataLoader(dataset=test_dataset, batch_size=1, shuffle=True, num_workers=0)
