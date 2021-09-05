@@ -59,7 +59,7 @@ def getAngle(start, mid, end):
         #  print(c)
         #  print('각도:')
        #   print(angle*180/math.pi)
-        
+
         return angle*180/math.pi
 
 """#**dataset.py**
@@ -92,22 +92,23 @@ act_id: 12 | 걷거나 뛰는 동작 | 2557
 
 class trainDataset(torch.utils.data.Dataset):
 
-    def __init__(self, data_path='./data'):
+    def __init__(self, data_path='./data', kps = None):
         train_dir_list = ['label_7', 'label_8', 'label_9']
         label_dir_list = ['label_7.csv', 'label_8.csv', 'label_9.csv']
         self.data_path = data_path
 
         self.exclude_labels = ["1","2","3","4","5","6","8","9","10"]
         self.label_num = 12 - len(self.exclude_labels)
-        self.count_limit = 2500
+        self.count_limit = 100
 
         self.angle_sets = [[2,26,28],[2,8,26],[8,10,14],[8,12,16],[22,18,26],[24,20,26]]
         self.angle_num = len(self.angle_sets)
+        self.kps = kps
 
         self.label_map = {}
         self.label_key = {}
 
-        # 제외할 라벨 및 개수 제한 
+        # 제외할 라벨 및 개수 제한
         self._dataFlattening(label_dir_list)
 
 
@@ -119,7 +120,7 @@ class trainDataset(torch.utils.data.Dataset):
         video_data = np.load(os.path.join(self.data_path, "label_yerim", filename))
    #     angle_lists = []
    #     for angle_set in self.angle_sets:
-        angle_list = self._getAngle(video_data)
+        angle_list = self._getAngle(video_data, self.kps)
    #         angle_lists.append(angle_list)
    #     item = (np.array(angle_lists), label)
         item = (angle_list, label)
@@ -177,18 +178,18 @@ class trainDataset(torch.utils.data.Dataset):
                     label += 1
                 self.train_videos.append((vid, self.label_map[str(k)][0]))
 
-        print(self.label_map)
-        print(self.train_videos)
+        # print(self.label_map)
+        # print(self.train_videos)
         self._showActdict()
 
     def _showActdict(self):
         for i in range(1,13):
             print(f"act_id: {str(i)} | {self.act_dict[str(i)]} | {len(self.vid_dict[str(i)])}")
-            
 
-    def _getAngle(self, video_data):
+
+    def _getAngle(self, video_data, kps):
         angle_list = []
-        angle_sett = [4,9,10]
+        angle_sett = kps
         s, m, f = angle_sett[0], angle_sett[1] , angle_sett[2]
 
         '''
@@ -212,7 +213,7 @@ keypoints 1  2   3   4    5   6         7       8       9         10        11  
                     angle_list.append(angle_list[-1])
 
                 continue;
-            ####   
+            ####
             if video_data[i][m] != 0:
                 mid_point.append(video_data[i][m])
                 mid_point.append(video_data[i][m+1])
@@ -221,9 +222,9 @@ keypoints 1  2   3   4    5   6         7       8       9         10        11  
                     angle_list.append(0)
                 else :
                     angle_list.append(angle_list[-1])
-                        
+
                 continue;
-            #####    
+            #####
             if video_data[i][f] != 0:
                 end_point.append(video_data[i][f])
                 end_point.append(video_data[i][f+1])
@@ -231,10 +232,10 @@ keypoints 1  2   3   4    5   6         7       8       9         10        11  
                 if len(angle_list) == 0:
                     angle_list.append(0)
                 else :
-                    angle_list.append(angle_list[-1]) 
+                    angle_list.append(angle_list[-1])
 
                 continue;
-            ######    
+            ######
             angle = getAngle(start_point, mid_point, end_point)
             angle_list.append(angle)
 
@@ -243,7 +244,7 @@ keypoints 1  2   3   4    5   6         7       8       9         10        11  
 """#**model.py**"""
 
 class TransformerModel(nn.Module):
-  def __init__(self, input_size, nhead, hidden_size, n_layers, dropout=0.1):
+  def __init__(self, input_size, nhead, hidden_size, n_layers, output_size, dropout=0.1):
     super(TransformerModel, self).__init__()
 
 
@@ -279,7 +280,7 @@ class TransformerModel(nn.Module):
     output = torch.squeeze(output, axis=1)
  #   print(output.shape)
     output = self.customed_decoder(output)
-    
+
 #    print(output)
 
     return output
@@ -289,13 +290,13 @@ class TransformerModel(nn.Module):
 def train(dataloader, epoch):
     print('[Epoch %d]' % (epoch+1))
 
-    criterion = nn.CrossEntropyLoss() 
+    criterion = nn.CrossEntropyLoss()
     running_loss = 0.0
 
     start_time = time.time()
     for batch_idx, samples in enumerate(dataloader):
         # le = preprocessing.LabelEncoder()
-        
+
         # labels = le.fit_transform(samples[1])
         labels = samples[1]
         labels = torch.tensor(labels)
@@ -305,18 +306,18 @@ def train(dataloader, epoch):
         angle_list, labels = angle_list.to(device), labels.to(device)
 
         # zero the parameter gradients
-        optimizer.zero_grad() 
+        optimizer.zero_grad()
         # forward + backward + optimize
         outputs = net(angle_list.float())
-        loss = criterion(outputs, labels) 
+        loss = criterion(outputs, labels)
       #  print(outputs, labels)
       #  print(loss)
         if not torch.isfinite(loss):
           print('WARNING: non-finite loss, ending training!')
           exit(1)
 
-        loss.backward() 
-        optimizer.step() 
+        loss.backward()
+        optimizer.step()
 
         # print statistics
         running_loss += loss.item()
@@ -324,7 +325,7 @@ def train(dataloader, epoch):
             elapsed = time.time() - start_time
             print('[%d, %5d] loss: %.6f in %.3f seconds' %
                   (epoch + 1, batch_idx + 1, running_loss / args.loss_interval, elapsed))
-            
+
             running_loss = 0.0
             start_time = time.time()
 
@@ -390,7 +391,7 @@ def valid(dataloader, epoch, output_size):
             valid_best['epoch'] = epoch + 1
 
             # save model
-            torch.save(net.state_dict(), './model/transformer-action-best-detect.pth')
+            torch.save(net.state_dict(), 'weights/transformer/transformer-action-best-detect.pth')
 
     return valid_loss, total_acc
 
@@ -408,9 +409,54 @@ args = easydict.EasyDict({
         "model_name": 'transformer-action-detect.pth',
         "model_path": './output/'})
 
-dataset = trainDataset(args.data_path)
-train_dataset, valid_dataset = train_test_split(dataset,  test_size=0.2, shuffle=True, random_state=34)
 
+# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+#
+# model_save_path = os.path.join(args.model_path, args.model_name)
+#
+#
+# input_size = 30
+# nhead = 2
+# hidden_size = 128
+# n_layers = 4
+# output_size = dataset.label_num
+# dropout = 0.1
+#
+# net = TransformerModel(input_size, nhead, hidden_size, n_layers, output_size, dropout)
+# # net.load_state_dict(torch.load(model_save_path))
+# net.to(device)
+# net = net.float()
+# optimizer = torch.optim.SGD(net.parameters(), lr=0.00001, momentum=0.9, weight_decay=0.0005)
+# scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 1.0, gamma=0.95)
+#
+# train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+# valid_dataloader = torch.utils.data.DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=True)
+#
+# valid_best = dict(epoch=0, total_acc=0)
+#
+# train_losses = []
+# valid_losses = []
+# valid_accuracy = []
+#
+# for epoch in range(0, args.epoch):
+#     epoch_start_time = time.time()
+#     net.train()
+#     loss = train(train_dataloader, epoch)
+#     net.eval()
+#     valid_loss, acc = valid(valid_dataloader, epoch, output_size)
+#     print("end of the epoch in %f seconds" % (time.time() - epoch_start_time))
+#     scheduler.step()
+#     train_losses.append(loss)
+#     valid_losses.append(valid_loss)
+#     valid_accuracy.append(acc)
+#
+#     torch.save(net.state_dict(), 'weights/transformer/transformer-action-detect.pth')
+#
+# print('[Best epoch: %d]' % valid_best['epoch'])
+# print('Accuracy of %5s: %.2f %%' % ('total', valid_best['total_acc']))
+# print('Done')
+#
+# net.eval()
 '''
         코 머리 입 입끝 목 앞우관절 앞좌관절 앞우발끝 앞좌발끝 뒤우관절 뒤좌관절 뒤우발끝 뒤좌발끝 꼬리시작 꼬리끝
         0    2   4  6    8    10      12         14     16        18      20        22        24     26    28
@@ -422,36 +468,50 @@ train_dataset, valid_dataset = train_test_split(dataset,  test_size=0.2, shuffle
 
 
 if __name__ == "__main__":
-    label1 = []
-    label2 = []
-    label3 = []
-    print(len(train_dataset))
-    for i in range(6000):
-        a = train_dataset[i]
-        if a[1] == 0:
-            label1.append(a[0])
-        if a[1] == 1:
-            label2.append(a[0])
-        if a[1] == 2:
-            label3.append(a[0])
+    kpss = [[2,8,14],[2,8,26],[2,26,28],[18,26,20],[22,26,24],[14,26,22],[14,8,22],[10,8,12],[14,8,16]]
 
-    for i in range(1500) :
-        walk_run = label1[i]
-        tail = label2[i]
-        arm = label3[i]
+    for kps in kpss:
+            dataset = trainDataset(args.data_path, kps)
+            train_dataset, valid_dataset = train_test_split(dataset, test_size=0.2, shuffle=True, random_state=34)
+            folder_path = f"output/images/{str(kps)}"
+            if not os.path.exists(folder_path):
+                os.mkdir(folder_path)
+            label1 = []
+            label2 = []
+            label3 = []
+            # print(len(train_dataset))
+            for i in range(240):
+                a = train_dataset[i]
+                if a[1] == 0:
+                    label1.append(a[0])
+                if a[1] == 1:
+                    label2.append(a[0])
+                if a[1] == 2:
+                    label3.append(a[0])
 
-        print(walk_run)
+            for i in range(70):
+                walk_run = label1[i]
+                tail = label2[i]
+                arm = label3[i]
 
-        plt.subplot(221)
-        plt.plot(walk_run, 'red')
+                # print(walk_run)
 
-        plt.subplot(222)
-        plt.plot(tail, 'blue')
+                plt.xlim([0, 30])
+                plt.ylim([-5, 180])
+                fig, axs = plt.subplots(3)
+                axs[0].set_ylim([-5, 180])
+                axs[1].set_ylim([-5, 180])
+                axs[2].set_ylim([-5, 180])
 
-        plt.subplot(223)
-        plt.plot(arm, 'green')
+                axs[0].plot(walk_run, 'red')
+                axs[0].set_ylabel("walkrun")
+                axs[1].plot(tail, 'blue')
+                axs[1].set_ylabel("tail")
+                axs[2].plot(arm, 'yellow')
+                axs[2].set_ylabel("arm stretch")
 
-        plt.show()
+                plt.savefig(f"output/images/{str(kps)}/{i}.jpg")
+                plt.close()
 
 
 

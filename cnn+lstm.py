@@ -62,8 +62,9 @@ class DataFolder(Dataset):
     size : image size (default: 256)
     skip : when you use
     """
-    def __init__(self, folder_path, category="cat", frame_thr=None, size=256, skip=None, select=None):
-        self.folder_path = folder_path
+    def __init__(self, data_path, anno_path, category="cat", frame_thr=None, size=256, skip=None, select=None):
+        self.data_path = data_path
+        self.anno_path = anno_path
         self.frame_thr = frame_thr
         self.skip = self.frame_thr if skip is None else skip
         self.size = size
@@ -101,7 +102,7 @@ class DataFolder(Dataset):
             label_nums = [1,2,3,4,5,6]
 
         for label_num in label_nums:
-            label_folder = os.path.join(os.path.abspath(self.folder_path), f'label_{label_num}.csv')
+            label_folder = os.path.join(os.path.abspath(self.anno_path), f'label_{label_num}.csv')
             if not os.path.exists(label_folder):
                 raise FileNotFoundError
 
@@ -160,8 +161,8 @@ class DataFolder(Dataset):
 
     def _getKeypoints(self, item_info):
         # meta data
-        label_folder = os.path.join(self.folder_path, "keypoints_npy", f'label_{item_info["label_num"]}')
-        keypoints_npy_path = os.path.join(label_folder, item_info['filename'] + ".npy")  # filepath
+        keypoints_label_folder = os.path.join(self.data_path, "keypoints_npy", f'label_{item_info["label_num"]}')
+        keypoints_npy_path = os.path.join(keypoints_label_folder, item_info['filename'] + ".npy")  # filepath
         height = item_info['height']
         width = item_info['width']
 
@@ -187,7 +188,7 @@ class DataFolder(Dataset):
 
     def _getH5data(self, item_info):
         label_num = item_info['label_num']
-        h5file = os.path.join(self.folder_path, "yolact_h5", f"source_{label_num}.h5")
+        h5file = os.path.join(self.data_path, "yolact_h5", f"source_{label_num}.h5")
 
         with h5py.File(h5file, "r") as f:  # open file
             data = f[item_info['filename']]['data'][:]  # load all data [frame, 256, 256]
@@ -273,7 +274,7 @@ def train(model1, model2, trainloader, testloader):
             optimizer1.step()
             optimizer2.step()
             print("", end="\r")
-            print(f"{cur_id} / {tot_len} batch done : {round(time.time()-prev,2)}s ", end="")
+            print(f"{cur_id} / {tot_len*2} batch done : {round(time.time()-prev,2)}s ", end="")
 
         torch.save(model1.state_dict(), './save_param1_' + str(epoch)+ '.pth')
         torch.save(model2.state_dict(), './save_param2_' + str(epoch)+ '.pth')
@@ -283,17 +284,14 @@ def train(model1, model2, trainloader, testloader):
 
 
 if __name__ == "__main__":
-    dataset = DataFolder(folder_path='./data', frame_thr=30, skip=10, select=[2, 7, 12])
-    train_count = int(len(dataset)*0.9)
-    valid_count = len(dataset) - train_count
-    # data_loader = DataLoader(dataset=dataset, batch_size=8, shuffle=True, num_workers=8)
-    train_set, val_set = random_split(dataset, [train_count, valid_count])
+    train_dataset = DataFolder(data_path="./data/", category="dog", anno_path='./data/train', frame_thr=30, skip=15, select=[7, 8, 9, 13])
+    test_dataset = DataFolder(data_path="./data/", category="dog", anno_path='./data/test', frame_thr=30, skip=1000, select=[7, 8, 9, 13])
 
-    train_loader = DataLoader(dataset=train_set, batch_size=32, shuffle=True, num_workers=0)
-    val_loader = DataLoader(dataset=val_set, batch_size=1, shuffle=True, num_workers=0)
+    train_loader = DataLoader(dataset=train_dataset, batch_size=32, shuffle=True, num_workers=0)
+    test_loader = DataLoader(dataset=test_dataset, batch_size=1, shuffle=True, num_workers=0)
     #
     net_cnn = CNN().cuda()
     net_lstm = LSTM().cuda()
 
-    train(net_cnn, net_lstm, train_loader, val_loader)
+    train(net_cnn, net_lstm, train_loader, test_loader)
 
