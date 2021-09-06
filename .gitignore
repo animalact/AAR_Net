@@ -122,5 +122,6 @@ work_dirs/
 
 weights/
 data/
+output/
 data*
-
+test*
