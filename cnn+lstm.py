@@ -16,7 +16,7 @@ class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
 
-        self.conv1 = nn.Conv2d(2, 10, 3)
+        self.conv1 = nn.Conv2d(3, 10, 3)
         self.conv2 = nn.Conv2d(10, 20, 3)
         self.conv3 = nn.Conv2d(20, 30, 3)
         self.conv4 = nn.Conv2d(30, 40, 3)
@@ -26,7 +26,9 @@ class CNN(nn.Module):
         # self.conv3 = nn.Conv2d(20, 30, 5)
 
     def forward(self, i):
-        x = i.contiguous().view(-1, i.shape[2], i.shape[3], i.shape[4])
+        #(batch, 3, 30, 256, 256)
+        x = torch.transpose(i, 1, 2)
+        x = x.contiguous().view(-1, x.shape[2], x.shape[3], x.shape[4])
         x = F.relu(self.conv1(x))
         x = nn.MaxPool2d(3)(x)
         x = F.relu(self.conv2(x))
@@ -35,16 +37,41 @@ class CNN(nn.Module):
         x = nn.MaxPool2d(3)(x)
         x = F.relu(self.conv4(x))
         x = nn.AvgPool2d(3)(x)
-        x = x.view(i.shape[0], i.shape[1], -1)
+        x = x.view(i.shape[0], i.shape[2], -1)
+        return x
 
+class CNN3D(nn.Module):
+    def __init__(self):
+        super(CNN3D, self).__init__()
+
+        self.conv1 = nn.Conv3d(3, 9, 2, padding=1)
+        self.conv2 = nn.Conv3d(9, 27, 2, padding=1)
+        self.conv3 = nn.Conv3d(27, 81, 2, padding=1)
+        self.fc = nn.Linear(81*81, 30*160)  #(batch, ch, last) -> (batch, frame, outch)
+
+
+    def forward(self, i):
+        # x = i.contiguous().view(-1, i.shape[2], i.shape[3], i.shape[4])
+        # print(x.shape)
+        x = i
+        x = F.relu(self.conv1(x))
+        x = nn.MaxPool3d(3)(x)
+        x = F.relu(self.conv2(x))
+        x = nn.MaxPool3d(3)(x)
+        x = F.relu(self.conv3(x))
+        x = nn.AvgPool3d(3)(x)
+        x = x.view(i.shape[0], -1)
+        x = self.fc(x)
+        x = x.view(i.shape[0], i.shape[2], -1)
         return x
 
 
+
 class LSTM(nn.Module):
-    def __init__(self):
+    def __init__(self, outsize):
         super(LSTM, self).__init__()
-        self.lstm = nn.LSTM(160,100) #1470, 100)
-        self.fc = nn.Linear(30*100, 3)
+        self.lstm = nn.LSTM(160, 100) #1470, 100)
+        self.fc = nn.Linear(30*100, outsize)
 
     def forward(self, x):
         x, _ = self.lstm(x)
@@ -80,12 +107,12 @@ class DataFolder(Dataset):
 
         keypoints_arr = keypoints_arr[np.newaxis,...]
         outline_arr = self._getH5data(item_info)[np.newaxis, ...]
-        arr = np.concatenate((outline_arr, keypoints_arr), axis=0)
+        zero_arr = np.zeros((1, 30, 256, 256))
+        arr = np.concatenate((outline_arr, keypoints_arr, zero_arr), axis=0)
         action_id = item_info["action_id"]
 
-        action_id = action_id % 3     # 12->0 7->1 2->2
-        label = np.zeros(3)
-        label[action_id] = 1
+        label = np.zeros(len(self.select))
+        label[self.labels[str(action_id)]] = 1
         return arr, label
 
     def __len__(self):
@@ -110,6 +137,9 @@ class DataFolder(Dataset):
             if self.select:
                 where = datum['action_id'].isin(self.select)
                 datum = datum[where]
+                self.labels = {}
+                for label, act in enumerate(self.select):
+                    self.labels[str(act)] = label
 
             if data is None:
                 data = datum
@@ -202,42 +232,33 @@ class DataFolder(Dataset):
 
 
 def test(model1, model2, testloader,epoch):
-    model1.load_state_dict(torch.load('./save_param1_' + str(epoch)+ '.pth'))
-    model2.load_state_dict(torch.load('./save_param2_' + str(epoch)+ '.pth'))
+    model1.load_state_dict(torch.load('output/weights/save_param1_' + str(epoch)+ '.pth'))
+    model2.load_state_dict(torch.load('output/weights/save_param2_' + str(epoch)+ '.pth'))
 
     model1.eval()
     model2.eval()
 
-    cnt, cnt_ = 0, 0
-    cnt0, cnt1, cnt2 = 0, 0, 0
-    cnt0_, cnt1_, cnt2_ = 0, 0, 0
+    shape = None
+    correct = None
+    total = None
     for imgs, labels in testloader:
         imgs, labels = torch.Tensor(imgs.float()).cuda(), torch.Tensor(labels.float()).cuda()
-        imgs = imgs.transpose(1, 2)
 
         features = model1(imgs)
         out = model2(features)
-        cnt += 1
-        if torch.max(labels, 1)[1] == 0:
-            cnt0 += 1
-            if torch.max(out, 1)[1] == 0:
-                cnt0_ += 1
-        elif torch.max(labels, 1)[1] == 1:
-            cnt1 += 1
-            if torch.max(out, 1)[1] == 1:
-                cnt1_ += 1
-        elif torch.max(labels, 1)[1] == 2:
-            cnt2 += 1
-            if torch.max(out, 1)[1] == 2:
-                cnt2_ += 1
-        if torch.max(out, 1)[1] == torch.max(labels, 1)[1]:
-            cnt_ += 1
+        if shape is None:
+            shape = out.shape
+            correct = torch.zeros(shape[1])
+            total = torch.zeros(shape[1])
+
+        total[torch.argmax(labels,1)] += 1
+        if torch.argmax(out, 1) == torch.argmax(labels, 1):
+            correct[torch.argmax(labels)] += 1
+
+
     print()
     print("-"*10)
-    print(f"class1 : {cnt0_} / {cnt0} = {round(cnt0_/cnt0, 2)}")
-    print(f"class2 : {cnt1_} / {cnt1} = {round(cnt1_/cnt1, 2)}")
-    print(f"class3 : {cnt2_} / {cnt2} = {round(cnt2_/cnt2, 2)}")
-    print(f"correct/total : {cnt_} / {cnt} = {round(cnt_/cnt, 2)}")
+    print(correct/total)
 
 
 def train(model1, model2, trainloader, testloader):
@@ -246,7 +267,7 @@ def train(model1, model2, trainloader, testloader):
     optimizer2 = optim.SGD(model2.parameters(), lr=0.01)
 
     loss_fn = nn.NLLLoss()
-    tot_len = int(len(trainloader.dataset)//64)
+    tot_len = int(len(trainloader.dataset)//trainloader.batch_size+1)
 
     prev = time.time()
 
@@ -260,11 +281,10 @@ def train(model1, model2, trainloader, testloader):
             cur_id+=1
             prev = time.time()
             imgs, labels = torch.Tensor(imgs.float()).cuda(),torch.Tensor(labels.float()).cuda()
-            imgs = imgs.transpose(1,2)
+            # imgs -> (None, ch, frame, w, h) -> (batch, 3, 30, 256, 256)
 
             optimizer1.zero_grad()
             optimizer2.zero_grad()
-
             features = model1(imgs)
             out = model2(features)
 
@@ -274,24 +294,26 @@ def train(model1, model2, trainloader, testloader):
             optimizer1.step()
             optimizer2.step()
             print("", end="\r")
-            print(f"{cur_id} / {tot_len*2} batch done : {round(time.time()-prev,2)}s ", end="")
+            print(f"{cur_id} / {tot_len} batch done : {round(time.time()-prev,2)}s ", end="")
 
-        torch.save(model1.state_dict(), './save_param1_' + str(epoch)+ '.pth')
-        torch.save(model2.state_dict(), './save_param2_' + str(epoch)+ '.pth')
+        torch.save(model1.state_dict(), 'output/weights/save_param1_' + str(epoch)+ '.pth')
+        torch.save(model2.state_dict(), 'output/weights/save_param2_' + str(epoch)+ '.pth')
         test(model1,model2,testloader,epoch=epoch)
 
         print("epoch:", epoch," _ loss:", loss.cpu().detach().numpy())
 
 
 if __name__ == "__main__":
-    train_dataset = DataFolder(data_path="./data/", category="dog", anno_path='./data/train', frame_thr=30, skip=15, select=[1,2,3,4,5,6,7,8,9,10,11,12])
-    test_dataset = DataFolder(data_path="./data/", category="dog", anno_path='./data/test', frame_thr=30, skip=1000, select=[1,2,3,4,5,6,7,8,9,10,11,12])
+    select = [7,8,12,13]
+    train_dataset = DataFolder(data_path="./data/", category="dog", anno_path='./data/train', frame_thr=30, skip=15, select=select)
+    test_dataset = DataFolder(data_path="./data/", category="dog", anno_path='./data/test', frame_thr=30, skip=1000, select=select)
 
     train_loader = DataLoader(dataset=train_dataset, batch_size=32, shuffle=True, num_workers=0)
     test_loader = DataLoader(dataset=test_dataset, batch_size=1, shuffle=True, num_workers=0)
     #
     net_cnn = CNN().cuda()
-    net_lstm = LSTM().cuda()
-
+    # net_cnn = CNN3D().cuda()
+    net_lstm = LSTM(len(select)).cuda()
+    #
     train(net_cnn, net_lstm, train_loader, test_loader)
 

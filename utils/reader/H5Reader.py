@@ -15,8 +15,8 @@ def visualize(data):
     cv2.destroyAllWindows()
 
 def run():
-    h5file = "/home/butlely/PycharmProjects/AAR_Net/data/yolact_h5/source_2.h5"
-    vid = "20201103_dog-taillow-000471.mp4"
+    h5file = "/home/butlely/PycharmProjects/AAR_Net/data/yolact_h5/source_1.h5"
+    vid = "20201123_dog-walkrun-003339.mp4"
     data = loadh5(h5file, vid)
     visualize(data[50])
 
