@@ -11,6 +11,7 @@ from torch.utils.data.dataset import random_split
 import h5py
 import numpy as np
 import pandas as pd
+import cv2
 
 class CNN(nn.Module):
     def __init__(self):
@@ -224,9 +225,17 @@ class DataFolder(Dataset):
         with h5py.File(h5file, "r") as f:  # open file
             data = f[item_info['filename']]['data'][:]  # load all data [frame, 256, 256]
             if self.frame_thr:
+                h5data = []
                 s = int(item_info["s"])
                 e = int(item_info["e"])
                 data = data[s:e,:,:]
+                for i, img in enumerate(data):
+                    contours, hi = cv2.findContours(img.copy(), mode=cv2.RETR_CCOMP, method=cv2.CHAIN_APPROX_NONE)
+                    bg = np.zeros(img.shape)
+                    outline = cv2.drawContours(bg, contours, -1, (255,0,0), thickness=3)
+                    h5data.append(outline)
+
+                data = np.array(h5data)
         return data
 
 
