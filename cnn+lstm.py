@@ -38,6 +38,7 @@ class CNN(nn.Module):
         x = F.relu(self.conv4(x))
         x = nn.AvgPool2d(3)(x)
         x = x.view(i.shape[0], i.shape[2], -1)
+
         return x
 
 class CNN3D(nn.Module):
@@ -259,6 +260,7 @@ def test(model1, model2, testloader,epoch):
     print()
     print("-"*10)
     print(correct/total)
+    print(torch.sum(correct)/torch.sum(total))
 
 
 def train(model1, model2, trainloader, testloader):
@@ -304,9 +306,9 @@ def train(model1, model2, trainloader, testloader):
 
 
 if __name__ == "__main__":
-    select = [7,8,12,13]
-    train_dataset = DataFolder(data_path="./data/", category="dog", anno_path='./data/train', frame_thr=30, skip=15, select=select)
-    test_dataset = DataFolder(data_path="./data/", category="dog", anno_path='./data/test', frame_thr=30, skip=1000, select=select)
+    select = [2,7,12]
+    train_dataset = DataFolder(data_path="./data/", category="cat", anno_path='./data/train', frame_thr=30, skip=15, select=select)
+    test_dataset = DataFolder(data_path="./data/", category="cat", anno_path='./data/test', frame_thr=30, skip=1000, select=select)
 
     train_loader = DataLoader(dataset=train_dataset, batch_size=32, shuffle=True, num_workers=0)
     test_loader = DataLoader(dataset=test_dataset, batch_size=1, shuffle=True, num_workers=0)
