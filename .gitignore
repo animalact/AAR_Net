@@ -123,5 +123,6 @@ work_dirs/
 weights/
 data/
 output/
+test/
 data*
 test*
