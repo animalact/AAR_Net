@@ -103,8 +103,7 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-data/
-data
+data.7z
 .vscode
 .idea
 .DS_Store
@@ -121,8 +120,8 @@ work_dirs/
 *.sh~
 
 weights/
-data/
 output/
 test/
-data*
 test*
+data/*
+!data/*.md
