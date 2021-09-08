@@ -5,11 +5,20 @@
     <img src="output/dog.gif", width="600">
 </p>
 
+Animal Action Recognition
+AAR
 
+AAR NET
 
-## install
-conda env create -f environment.yaml
+LSTM Model
+<p align="center">
+    <img src="output/dog.gif", width="600">
+</p>
 
-python demo.py
+Transformer Model
+<p align="center">
+    <img src="output/dog.gif", width="600">
+</p>
+
 
 

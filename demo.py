@@ -4,7 +4,7 @@ import time
 import cv2
 
 from third_party.yolact_model.yolact import setYolact, runYolact
-from third_party.mmpose_model.mmpose import setMmpose, runMmpose
+from third_party.mmpose_model.mmpose import setMmpose, runMmpose, putCircle
 from lib.AAR_model import *
 
 PREV = time.time()
@@ -53,8 +53,10 @@ def run(video, yolo_onnx, mm_onnx, show=True, save_folder=""):
         vidname = video.split("/")[-1]
         yolact_writer_name = os.path.join(save_folder, "yolact_"+vidname)
         mmpose_writer_name = os.path.join(save_folder, "mmpose_"+vidname)
+        aar_writer_name = os.path.join(save_folder, "aar_"+vidname)
         yolact_writer = cv2.VideoWriter(yolact_writer_name, fourcc, 25, (width, height), True)
         mmpose_writer = cv2.VideoWriter(mmpose_writer_name, fourcc, 25, (width, height), True)
+        aar_writer = cv2.VideoWriter(aar_writer_name, fourcc, 25, (width, height), True)
 
     i = 0
     cache = []
@@ -72,15 +74,22 @@ def run(video, yolo_onnx, mm_onnx, show=True, save_folder=""):
         mmpose_img, coords = runMmpose(img, bbox, mm_sess, mm_sess_info )
 
         caching(mask, coords)
-        action = runAAR(aar_sess, img, CACHE)
+        action = runAAR(aar_sess, CACHE)
 
         checktime("frame "+str(i), action)
 
         if save_folder:
             yolact_writer.write(yolact_img)
             mmpose_writer.write(mmpose_img)
+            img = putCircle(yolact_img, coords)
+            if isinstance(action, str):
+                img = putText(img, action)
+            aar_writer.write(img)
 
         if show:
+            img = putCircle(yolact_img, coords)
+            if isinstance(action, str):
+                img = putText(img, action)
             cv2.imshow("demo", img)
 
         key = cv2.waitKey(1) & 0xFF
