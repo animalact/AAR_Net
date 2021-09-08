@@ -1,34 +1,37 @@
 ## Introduction
 
 
+
+ 
+
+
+### Animal Action Recognition
 <p align="center">
-    <img src="output/result.gif", width="500">
+    <img src="output/result.gif" width="200">
 </p>
+                                            
+Animal Behabior Classification with AAR Models 
 
-###Animal Action Recognition
+## AAR NETs
 
-Animal Behabior Classification with AAR Models
-
-##AAR NETs
-
-###LSTM Model
+### LSTM Model
 <p align="center">
     <img src="output/lstm_model.png", width="1000">
 </p>
 
-###Transformer Model
+### Transformer Model
 <p align="center">
     <img src="output/transformer_model.png", width="1000">
 </p>
 
-##Third Party
+## Third Party
 We use Third party libraries
 
-###yolact
+### yolact
 Masking objects
 [yolact](https://github.com/dbolya/yolact)
 
-###mmpose
+### mmpose
 Getting Keypoints
 [mmpose](https://github.com/open-mmlab/mmpose)
 
