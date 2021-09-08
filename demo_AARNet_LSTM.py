@@ -8,6 +8,7 @@ from lib.models.AARNet_LSTM import *
 from lib.dataset.aar_lstm_dataset import AARDataset
 
 if __name__ == "__main__":
+    # select = [6,11,13]
     select = [2,7,12]
     train_dataset = AARDataset(data_path="./data/", category="cat", anno_path='./data/train', frame_thr=30, skip=15, select=select)
     test_dataset = AARDataset(data_path="./data/", category="cat", anno_path='./data/test', frame_thr=30, skip=1000, select=select, test=True)
@@ -17,7 +18,6 @@ if __name__ == "__main__":
 
     net_cnn = CNN().cuda()
     # net_cnn = CNN3D().cuda()
-
     net_wellknown = Net(name="mobilenet2").cuda()
     net_lstm = LSTM(len(select)).cuda()
 

@@ -25,7 +25,7 @@ def writeImages(video):
 
 if __name__ == "__main__":
     video_path = "/home/butlely/PycharmProjects/AAR_Net/test/cat-walkrun-080940"
-    video = "/home/butlely/PycharmProjects/AAR_Net/output/tester/yolact_cat-walkrun-080940.mp4"
+    video = "/home/butlely/PycharmProjects/AAR_Net/output/tester/mmpose_cat-walkrun-080940.mp4"
     save_path = "/home/butlely/PycharmProjects/AAR_Net/output/tester"
     writeImages(video=video)
     print("Done")
