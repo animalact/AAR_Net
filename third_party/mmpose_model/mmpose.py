@@ -43,5 +43,5 @@ def runMmpose(img, bbox, sess, sess_info):
     trans_img, fliped_img = compose(resized_img, img_metas)
     coords = runModel(trans_img, fliped_img, sess, sess_info, img_metas)
     coords = reformCoord(coords, bbox)
-    img = putCircle(img, coords)
+
     return img, coords

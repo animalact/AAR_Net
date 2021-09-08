@@ -2,14 +2,34 @@
 
 
 <p align="center">
-    <img src="output/dog.gif", width="600">
+    <img src="output/result.gif", width="500">
 </p>
 
+###Animal Action Recognition
 
+Animal Behabior Classification with AAR Models
 
-## install
-conda env create -f environment.yaml
+##AAR NETs
 
-python demo.py
+###LSTM Model
+<p align="center">
+    <img src="output/lstm_model.png", width="1000">
+</p>
+
+###Transformer Model
+<p align="center">
+    <img src="output/transformer_model.png", width="1000">
+</p>
+
+##Third Party
+We use Third party libraries
+
+###yolact
+Masking objects
+[yolact](https://github.com/dbolya/yolact)
+
+###mmpose
+Getting Keypoints
+[mmpose](https://github.com/open-mmlab/mmpose)
 
 
